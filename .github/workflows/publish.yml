@@ -71,10 +71,8 @@ jobs:
         id: github-tag-action
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DEFAULT_BUMP: patch
-          TAG_CONTEXT: repo
+          WITH_V: true
           RELEASE_BRANCHES: "main"
-          INITIAL_VERSION: 1.0.0
           VERBOSE: false
           DRY_RUN: false
       - uses: ncipollo/release-action@v1
