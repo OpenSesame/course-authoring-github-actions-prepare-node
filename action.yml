@@ -1,7 +1,11 @@
 name: 'Prepare Node Environment'
 description: 'Prepare Github workflow for a Node-based application'
 inputs:
-  node-version:  # id of input
+  create-env-file:
+    description: 'Whether build:env should be run to generate an env file or not. This is typically true in UIs, but false in libraries.'
+    required: false
+    default: true
+  node-version:
     description: 'The version of Node to install and pass into to actions/setup-node'
     required: true
     default: '16.x'
@@ -41,6 +45,7 @@ runs:
       env:
         NODE_AUTH_TOKEN: ${{ steps.github-packages-token.outputs.token }}
     - name: Create .env file
+      if: inputs.create-env-file == 'true'
       run: npm run build:env-"${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}"
     - name: Cache commit
       uses: actions/cache@v3

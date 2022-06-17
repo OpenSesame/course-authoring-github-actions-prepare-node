@@ -67,7 +67,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
       - name: Bump version and push tag
-        uses: anothrNick/github-tag-action@1.39.0
+        uses: anothrNick/github-tag-action@1.36.0
         id: github-tag-action
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
