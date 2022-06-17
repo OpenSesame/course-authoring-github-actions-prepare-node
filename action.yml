@@ -21,7 +21,7 @@ inputs:
     description: 'The version of Node to install and pass into to actions/setup-node. "16.x" for example.'
     required: true
   org-auth-token:
-    description: 'An org-level auth token secret used to install npm modules. This is only needed if the repository doesn't use AWS secrets manager'
+    description: 'An org-level auth token secret used to install npm modules. This is only needed if the repository does not use AWS secrets manager'
     required: false
     default: ''
 runs:
