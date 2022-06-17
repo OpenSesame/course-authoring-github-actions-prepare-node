@@ -70,11 +70,14 @@ jobs:
         uses: anothrNick/github-tag-action@1.36.0
         id: github-tag-action
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WITH_V: true
-          RELEASE_BRANCHES: "main"
-          VERBOSE: false
+          DEFAULT_BUMP: patch
           DRY_RUN: false
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INITIAL_VERSION: 1.1.0
+          RELEASE_BRANCHES: "main"
+          TAG_CONTEXT: branch
+          VERBOSE: false
+          WITH_V: true
       - uses: ncipollo/release-action@v1
         with:
           tag: ${{ steps.github-tag-action.outputs.new_tag }}
