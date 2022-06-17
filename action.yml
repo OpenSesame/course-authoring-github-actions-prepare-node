@@ -1,14 +1,50 @@
-name: 'Hello World'
-description: 'Greet someone'
+name: 'Prepare Node Environment'
+description: 'Prepare Github workflow for a Node-based application'
 inputs:
-  who-to-greet:  # id of input
-    description: 'Who to greet'
+  node-version:  # id of input
+    description: 'The version of Node to install and pass into to actions/setup-node'
     required: true
-    default: 'World'
+    default: '16.x'
 runs:
   using: "composite"
   steps:
-    - run: echo Hello ${{ inputs.who-to-greet }}.
-      shell: bash
-    - run: echo "${{ github.action_path }}" >> $GITHUB_PATH
-      shell: bash          
+    - name: Checkout
+      uses: actions/checkout@v3.0.2
+    - name: Cache npm cache
+      uses: actions/cache@v3
+      id: restore-npm-node-modules-cache
+      with:
+        path: |
+          ~/.npm
+          node_modules
+        key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: ${{ runner.os }}-node-modules
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.COURSE_AUTHORING_FACELESS_AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.COURSE_AUTHORING_FACELESS_AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+        role-to-assume: ${{ secrets.COURSE_AUTHORING_FACELESS_ROLE_ARN }}
+        role-duration-seconds: 3600
+    - name: Get secret value
+      id: github-packages-token
+      run: |
+        echo "::set-output name=token::$(aws secretsmanager get-secret-value --secret-id course-authoring/"${{ github.ref == 'refs/heads/main' && 'live' || 'dev' }}"/environment | jq -r '.SecretString' | jq -r .GITHUB_PACKAGES_READ_WRITE_TOKEN)"
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v3.3.0
+      with:
+        registry-url: 'https://npm.pkg.github.com'
+        node-version: ${{ inputs.node-version }}
+    - name: Install NPM Packages
+      run: npm ci
+      env:
+        NODE_AUTH_TOKEN: ${{ steps.github-packages-token.outputs.token }}
+    - name: Create .env file
+      run: npm run build:env-"${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}"
+    - name: Cache commit
+      uses: actions/cache@v3
+      id: restore-commit
+      with:
+        path: ./*
+        key: ${{ github.sha }}
