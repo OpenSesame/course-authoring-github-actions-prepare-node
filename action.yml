@@ -40,7 +40,7 @@ runs:
         restore-keys: ${{ runner.os }}-node-modules
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
-      if: ${{ inputs.org-auth-token }} == ''
+      if: inputs.org-auth-token == ''
       with:
         aws-access-key-id: ${{ inputs.aws-access-key-id }}
         aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
@@ -49,7 +49,7 @@ runs:
         role-duration-seconds: 3600
     - name: Get secret value
       id: github-packages-token
-      if: ${{ inputs.org-auth-token }} == ''
+      if: inputs.org-auth-token == ''
       shell: bash
       run: |
         echo "::set-output name=token::$(aws secretsmanager get-secret-value --secret-id course-authoring/"${{ github.ref == 'refs/heads/main' && 'live' || 'dev' }}"/environment | jq -r '.SecretString' | jq -r .GITHUB_PACKAGES_READ_WRITE_TOKEN)"
@@ -59,13 +59,13 @@ runs:
         registry-url: 'https://npm.pkg.github.com'
         node-version: ${{ inputs.node-version }}
     - name: Install NPM Packages (with token from AWS Secrets Manager)
-      if: ${{ inputs.org-auth-token }} == ''
+      if: inputs.org-auth-token == ''
       shell: bash
       run: npm ci
       env:
         NODE_AUTH_TOKEN: ${{ steps.github-packages-token.outputs.token }}
     - name: Install NPM Packages (with org-level provisioned token)
-      if: ${{ inputs.org-auth-token }} != ''
+      if: inputs.org-auth-token != ''
       shell: bash
       run: npm ci
       env:
