@@ -4,11 +4,9 @@ inputs:
   aws-access-key-id:
     description: 'The faceless AWS access key id to retrieve secrets'
     required: true
-    default: ''
   aws-secret-access-key:
     description: 'The faceless AWS secret access key to retrieve secrets'
     required: true
-    default: ''
   aws-region:
     description: 'The region environment secrets are stored in'
     required: false
@@ -16,7 +14,6 @@ inputs:
   aws-role-arn:
     description: 'The ARN of the role to assume to retrieve secrets'
     required: true
-    default: ''
   create-env-file:
     description: 'Whether build:env should be run to generate an env file or not. This is typically true in UIs, but false in libraries.'
     required: true

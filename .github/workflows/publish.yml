@@ -29,16 +29,36 @@ jobs:
       - name: Checkout
         if: steps.restore-commit.outputs.cache-hit != 'true'
         uses: actions/checkout@v3.0.2
-      - name: Bump version and push tag
-        uses: anothrNick/github-tag-action@1.36.0
-        id: github-tag-action
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_CONTEXT: repo
-          RELEASE_BRANCHES: "main"
-          INITIAL_VERSION: 1.2.0
-          WITH_V: true
+      - name: Build new base package version
+        run: |
+          CURRENT_PACKAGE_VERSION=$(node -pe "require('./package.json').version")
+          SEMVER=( ${CURRENT_PACKAGE_VERSION//./ } )
+          printf -v BUILD_NUM '%(%s)T' -1
+          NEW_PACKAGE_VERSION="${SEMVER[0]}.${SEMVER[1]}.${BUILD_NUM}"
+          echo $NEW_PACKAGE_VERSION > version.txt
+      - name: Increment package patch version
+        id: generate-release-version
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          NEW_PACKAGE_VERSION=$(cat version.txt)
+          npm version $NEW_PACKAGE_VERSION -no-git-tag-version
+          git tag -a -m $NEW_PACKAGE_VERSION $NEW_PACKAGE_VERSION
+          echo "::set-output name=new-version::$NEW_PACKAGE_VERSION"
+      - name: Increment package prerelease version
+        id: generate-prerelease-version
+        if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+        run: |
+          NEW_PACKAGE_VERSION="$(cat version.txt)-alpha"
+          npm version $NEW_PACKAGE_VERSION -no-git-tag-version
+          git tag -a -m $NEW_PACKAGE_VERSION $NEW_PACKAGE_VERSION
+          echo "::set-output name=new-version::$NEW_PACKAGE_VERSION"
       - uses: ncipollo/release-action@v1
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
-          tag: ${{ steps.github-tag-action.outputs.new_tag }}
+          tag: ${{ steps.generate-release-version.outputs.new-version }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: ncipollo/release-action@v1
+        if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+        with:
+          tag: ${{ steps.generate-prerelease-version.outputs.new-version }}
           token: ${{ secrets.GITHUB_TOKEN }}
