@@ -3,11 +3,11 @@ description: 'Prepare Github workflow for a Node-based application'
 inputs:
   aws-access-key-id:
     description: 'The faceless AWS access key id to retrieve secrets'
-    required: false
+    required: true
     default: ''
   aws-secret-access-key:
     description: 'The faceless AWS secret access key to retrieve secrets'
-    required: false
+    required: true
     default: ''
   aws-region:
     description: 'The region environment secrets are stored in'
@@ -15,19 +15,11 @@ inputs:
     default: 'us-west-2'
   aws-role-arn:
     description: 'The ARN of the role to assume to retrieve secrets'
-    required: false
+    required: true
     default: ''
   create-env-file:
     description: 'Whether build:env should be run to generate an env file or not. This is typically true in UIs, but false in libraries.'
     required: true
-  node-version:
-    description: 'The version of Node to install and pass into to actions/setup-node. "16.x" for example.'
-    required: false
-    default: '16.x'
-  org-auth-token:
-    description: 'An org-level auth token secret used to install npm modules. This is only needed if the repository does not use AWS secrets manager'
-    required: false
-    default: ''
 runs:
   using: "composite"
   steps:
@@ -61,19 +53,12 @@ runs:
       uses: actions/setup-node@v3.3.0
       with:
         registry-url: 'https://npm.pkg.github.com'
-        node-version: ${{ inputs.node-version }}
-    - name: Install NPM Packages (with token from AWS Secrets Manager)
-      if: inputs.org-auth-token == ''
+        node-version: '16.x'
+    - name: Install NPM Packages
       shell: bash
       run: npm ci
       env:
         NODE_AUTH_TOKEN: ${{ steps.github-packages-token.outputs.token }}
-    - name: Install NPM Packages (with org-level provisioned token)
-      if: inputs.org-auth-token != ''
-      shell: bash
-      run: npm ci
-      env:
-        NODE_AUTH_TOKEN: ${{ inputs.org-auth-token }}
     - name: Create .env file
       if: inputs.create-env-file == 'true'
       shell: bash
