@@ -18,7 +18,3 @@ There are other inputs for this action that help control its behavior:
 ## Bumping the library version
 
 The major and minor versions of the library must be manually changed by adding `#major` or `#minor` as part of the commit message. More information can be found here: https://github.com/anothrNick/github-tag-action
-
-## Reving major (LTS) version of Node
-
-As specified in section above, to increase the major version of Node setup by this action, you can create a commit with `#major` in the git commit message as specified above and change the version installed by the actions/setup-node@v3.3.0 to use the new LTS version of Node. This then allows users of this action to upgrade to newer Node (or other dependency) versions when possible.
