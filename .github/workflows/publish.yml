@@ -8,7 +8,6 @@ env:
 jobs:
   Prepare:
     runs-on: ubuntu-latest
-    environment: "${{ github.ref == 'refs/heads/main' && 'live' || 'dev' }}"
     steps:
       - name: Checkout
         uses: actions/checkout@v3.0.2
@@ -18,35 +17,6 @@ jobs:
         with:
           path: ./*
           key: ${{ github.sha }}
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.COURSE_AUTHORING_FACELESS_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.COURSE_AUTHORING_FACELESS_AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ secrets.COURSE_AUTHORING_FACELESS_ROLE_ARN }}
-          role-duration-seconds: 3600
-      - name: Get secret value
-        id: github-packages-token
-        run: |
-          echo "::set-output name=token::$(aws secretsmanager get-secret-value --secret-id course-authoring/"${{ github.ref == 'refs/heads/main' && 'live' || 'dev' }}"/environment | jq -r '.SecretString' | jq -r .GITHUB_PACKAGES_READ_WRITE_TOKEN)"
-      - name: Setup Node.js environment
-        uses: actions/setup-node@v3.3.0
-        with:
-          registry-url: 'https://npm.pkg.github.com'
-          node-version: '16.x'
-      - name: Install NPM Packages
-        run: npm ci
-        env:
-          NODE_AUTH_TOKEN: ${{ steps.github-packages-token.outputs.token }}
-      - name: Cache npm cache
-        uses: actions/cache@v3
-        id: restore-npm-cache
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
   Publish:
     runs-on: ubuntu-latest
     needs: ['Prepare']
@@ -59,24 +29,37 @@ jobs:
       - name: Checkout
         if: steps.restore-commit.outputs.cache-hit != 'true'
         uses: actions/checkout@v3.0.2
-      - uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-      - name: Bump version and push tag
-        uses: anothrNick/github-tag-action@1.39.0
+      - name: Build new base package version
+        run: |
+          CURRENT_PACKAGE_VERSION=$(node -pe "require('./package.json').version")
+          SEMVER=( ${CURRENT_PACKAGE_VERSION//./ } )
+          printf -v BUILD_NUM '%(%s)T' -1
+          NEW_PACKAGE_VERSION="${SEMVER[0]}.${SEMVER[1]}.${BUILD_NUM}"
+          echo $NEW_PACKAGE_VERSION > version.txt
+      - name: Increment package patch version
+        id: generate-release-version
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          NEW_PACKAGE_VERSION=$(cat version.txt)
+          echo $NEW_PACKAGE_VERSION > tag.txt
+      - name: Increment package prerelease version
+        id: generate-prerelease-version
+        if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+        run: |
+          NEW_PACKAGE_VERSION="$(cat version.txt)-alpha"
+          echo $NEW_PACKAGE_VERSION > tag.txt
+      - name: Get tag
+        id: get-tag
+        run: |
+          echo "::set-output name=new-tag::$(cat tag.txt)"
+      - name: Push tag
+        uses: anothrNick/github-tag-action@1.36.0
         id: github-tag-action
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DEFAULT_BUMP: patch
-          TAG_CONTEXT: repo
-          RELEASE_BRANCHES: "main"
-          INITIAL_VERSION: 1.1.0
-          VERBOSE: false
-          DRY_RUN: false
-      - uses: ncipollo/release-action@v1
+          CUSTOM_TAG: ${{ steps.get-tag.outputs.new-tag }}
+      - name: Create release
+        uses: ncipollo/release-action@v1
         with:
-          tag: ${{ steps.github-tag-action.outputs.new_tag }}
+          tag: ${{ steps.get-tag.outputs.new-tag }}
           token: ${{ secrets.GITHUB_TOKEN }}

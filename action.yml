@@ -1,14 +1,66 @@
-name: 'Hello World'
-description: 'Greet someone'
+name: 'Prepare Node Environment'
+description: 'Prepare Github workflow for a Node-based application'
 inputs:
-  who-to-greet:  # id of input
-    description: 'Who to greet'
+  aws-access-key-id:
+    description: 'The faceless AWS access key id to retrieve secrets'
     required: true
-    default: 'World'
+  aws-secret-access-key:
+    description: 'The faceless AWS secret access key to retrieve secrets'
+    required: true
+  aws-region:
+    description: 'The region environment secrets are stored in'
+    required: false
+    default: 'us-west-2'
+  aws-role-arn:
+    description: 'The ARN of the role to assume to retrieve secrets'
+    required: true
+  create-env-file:
+    description: 'Whether build:env should be run to generate an env file or not. This is typically true in UIs, but false in libraries.'
+    required: true
 runs:
   using: "composite"
   steps:
-    - run: echo Hello ${{ inputs.who-to-greet }}.
+    - name: Checkout
+      uses: actions/checkout@v3.0.2
+    - name: Cache npm cache
+      uses: actions/cache@v3
+      id: restore-npm-node-modules-cache
+      with:
+        path: |
+          ~/.npm
+          node_modules
+        key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: ${{ runner.os }}-node-modules
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ inputs.aws-access-key-id }}
+        aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
+        aws-region: ${{ inputs.aws-region }}
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        role-duration-seconds: 3600
+    - name: Get secret value
+      id: github-packages-token
       shell: bash
-    - run: echo "${{ github.action_path }}" >> $GITHUB_PATH
-      shell: bash          
+      run: |
+        echo "::set-output name=token::$(aws secretsmanager get-secret-value --secret-id course-authoring/"${{ github.ref == 'refs/heads/main' && 'live' || 'dev' }}"/environment | jq -r '.SecretString' | jq -r .GITHUB_PACKAGES_READ_WRITE_TOKEN)"
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v3.3.0
+      with:
+        registry-url: 'https://npm.pkg.github.com'
+        node-version: '16.x'
+    - name: Install NPM Packages
+      shell: bash
+      run: npm ci
+      env:
+        NODE_AUTH_TOKEN: ${{ steps.github-packages-token.outputs.token }}
+    - name: Create .env file
+      if: inputs.create-env-file == 'true'
+      shell: bash
+      run: npm run build:env-"${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}"
+    - name: Cache commit
+      uses: actions/cache@v3
+      id: restore-commit
+      with:
+        path: ./*
+        key: ${{ github.sha }}
