@@ -17,6 +17,9 @@ inputs:
   create-env-file:
     description: 'Whether build:env should be run to generate an env file or not. This is typically true in UIs, but false in libraries.'
     required: true
+  environment:
+    description: 'Whether the action should be run on "dev" or "live" environment'
+    required: true
 runs:
   using: "composite"
   steps:
@@ -43,7 +46,7 @@ runs:
       id: github-packages-token
       shell: bash
       run: |
-        echo "::set-output name=token::$(aws secretsmanager get-secret-value --secret-id course-authoring/"${{ github.ref == 'refs/heads/main' && 'live' || 'dev' }}"/environment | jq -r '.SecretString' | jq -r .GITHUB_PACKAGES_READ_WRITE_TOKEN)"
+        echo "::set-output name=token::$(aws secretsmanager get-secret-value --secret-id course-authoring/"${{ inputs.environment }}"/environment | jq -r '.SecretString' | jq -r .GITHUB_PACKAGES_READ_WRITE_TOKEN)"
     - name: Setup Node.js environment
       uses: actions/setup-node@v3.3.0
       with:
@@ -57,7 +60,7 @@ runs:
     - name: Create .env file
       if: inputs.create-env-file == 'true'
       shell: bash
-      run: npm run build:env-"${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}"
+      run: npm run build:env-"${{ inputs.environment == 'live' && 'prod' || 'dev' }}"
     - name: Cache commit
       uses: actions/cache@v3
       id: restore-commit
